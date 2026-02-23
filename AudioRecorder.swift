@@ -166,17 +166,40 @@ final class AudioRecorder: ObservableObject {
             audioFile = file
             audioEngine = engine
 
-            input.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak file] buffer, _ in
-                guard let f = file else { return }
-                try? f.write(from: buffer)
-                if let channelData = buffer.floatChannelData?[0] {
-                    let frameLength = Int(buffer.frameLength)
-                    var sum: Float = 0
-                    for i in 0..<frameLength { sum += abs(channelData[i]) }
-                    let amplitude = sum / Float(frameLength)
-                    Task { @MainActor [weak self] in
-                        self?.currentAmplitude = min(amplitude * 10, 1.0)
+            input.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self, weak file] buffer, _ in
+                guard let file = file else { return }
+                try? file.write(from: buffer)
+
+                guard let data = buffer.floatChannelData?[0] else { return }
+                let frameLength = Int(buffer.frameLength)
+                guard frameLength > 0 else { return }
+
+                var sum: Float = 0
+                for i in 0..<frameLength {
+                    sum += data[i] * data[i]
+                }
+                let rms = sqrt(sum / Float(frameLength))
+                let amplitude = min(rms * 8, 1.0)
+
+                var crossings = 0
+                for i in 1..<frameLength {
+                    if (data[i] >= 0) != (data[i - 1] >= 0) {
+                        crossings += 1
                     }
+                }
+                let frequency = min(Float(crossings) / Float(frameLength) * 4, 1.0)
+
+                let mean = rms
+                var variance: Float = 0
+                for i in 0..<frameLength {
+                    variance += abs(abs(data[i]) - mean)
+                }
+                let rhythm = min(variance / Float(frameLength) * 10, 1.0)
+
+                Task { @MainActor [weak self] in
+                    self?.currentAmplitude = amplitude
+                    self?.currentFrequency = frequency
+                    self?.currentRhythm = rhythm
                 }
             }
 
@@ -192,16 +215,43 @@ final class AudioRecorder: ObservableObject {
     }
 
     private func startSimulation() {
-        var tick: Float = 0
-        simulationTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) {
-            [weak self] _ in
+        let engine = AVAudioEngine()
+        let input = engine.inputNode
+        let format = input.inputFormat(forBus: 0)
+
+        guard format.sampleRate > 0 else { return }
+
+        audioEngine = engine
+
+        input.installTap(onBus: 0, bufferSize: 2048, format: format) { [weak self] buffer, _ in
+            guard let data = buffer.floatChannelData?[0] else { return }
+            let frameLength = Int(buffer.frameLength)
+            guard frameLength > 0 else { return }
+
+            var sum: Float = 0
+            for i in 0..<frameLength { sum += data[i] * data[i] }
+            let rms = sqrt(sum / Float(frameLength))
+            let amplitude = min(rms * 12, 1.0)
+
+            var crossings = 0
+            for i in 1..<frameLength {
+                if (data[i] >= 0) != (data[i - 1] >= 0) { crossings += 1 }
+            }
+            let frequency = min(Float(crossings) / Float(frameLength) * 5, 1.0)
+
+            var variance: Float = 0
+            for i in 0..<frameLength { variance += abs(abs(data[i]) - rms) }
+            let rhythm = min(variance / Float(frameLength) * 12, 1.0)
+
             Task { @MainActor [weak self] in
-                tick += 0.1
-                self?.currentAmplitude = (sin(tick * 1.3) + 1) / 2 * 0.8
-                self?.currentFrequency = (sin(tick * 0.7) + 1) / 2
-                self?.currentRhythm = (sin(tick * 2.1) + 1) / 2
+                self?.currentAmplitude = amplitude
+                self?.currentFrequency = frequency
+                self?.currentRhythm = rhythm
             }
         }
+
+        engine.prepare()
+        try? engine.start()
     }
 
     func stopRecording() {
