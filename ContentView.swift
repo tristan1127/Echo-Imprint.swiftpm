@@ -24,13 +24,17 @@ struct ContentView: View {
 
                 Spacer()
 
-                // Sound organism visualization
-                SoundOrganismView(audioRecorder: audioRecorder)
-                    .transaction { transaction in
-                        transaction.animation = nil
-                    }
-                    .animation(nil, value: audioRecorder.isRecording)
-                    .animation(nil, value: pulseScale)
+                // Sound organism visualization (Glass Echo Seed)
+                SoundOrganismView(
+                    amplitude: audioRecorder.currentAmplitude,
+                    frequency: audioRecorder.currentFrequency,
+                    rhythm: audioRecorder.currentRhythm
+                )
+                .transaction { transaction in
+                    transaction.animation = nil
+                }
+                .animation(nil, value: audioRecorder.isRecording)
+                .animation(nil, value: pulseScale)
 
                 Spacer()
 
