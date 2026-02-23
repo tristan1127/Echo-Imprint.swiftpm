@@ -24,7 +24,7 @@ struct ContentView: View {
 
                 Spacer()
 
-                // Sound organism visualization (Glass Echo Seed)
+                // Sound organism visualization (Glass Echo Organism)
                 SoundOrganismView(
                     amplitude: audioRecorder.currentAmplitude,
                     frequency: audioRecorder.currentFrequency,
