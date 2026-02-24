@@ -17,6 +17,7 @@ final class AudioRecorder: ObservableObject {
     @Published var currentAmplitude: Float = 0.0
     @Published var currentFrequency: Float = 0.0
     @Published var currentRhythm: Float = 0.0
+    @Published var lastGrowth: Float = 0.0
     @Published var lastRecordingURL: URL?
     @Published var isPlaying: Bool = false
 

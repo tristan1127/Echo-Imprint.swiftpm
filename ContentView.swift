@@ -6,7 +6,9 @@ struct ContentView: View {
     // MARK: - State
 
     @StateObject private var audioRecorder = AudioRecorder()
+    @StateObject private var specimenStore = SpecimenStore()
     @State private var pulseScale: CGFloat = 1.0
+    @State private var wasRecording: Bool = false
 
     // MARK: - Body
 
@@ -28,7 +30,10 @@ struct ContentView: View {
                 SoundOrganismView(
                     amplitude: audioRecorder.currentAmplitude,
                     frequency: audioRecorder.currentFrequency,
-                    rhythm: audioRecorder.currentRhythm
+                    rhythm: audioRecorder.currentRhythm,
+                    onGrowthUpdate: { [weak audioRecorder] growth in
+                        audioRecorder?.lastGrowth = growth
+                    }
                 )
                 .transaction { transaction in
                     transaction.animation = nil
@@ -45,6 +50,27 @@ struct ContentView: View {
                     playButton
                 }
 
+                ScrollView(showsIndicators: false) {
+                    LazyVStack(spacing: 12) {
+                        if specimenStore.specimens.isEmpty {
+                            Text("Your sound memories will appear here")
+                                .font(.system(size: 13, weight: .regular))
+                                .foregroundColor(Color(.systemGray))
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 24)
+                                .padding(.bottom, 12)
+                        } else {
+                            ForEach(specimenStore.specimens) { specimen in
+                                SpecimenCardView(specimen: specimen)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 20)
+                }
+                .frame(maxHeight: 260)
+
                 Spacer()
             }
         }
@@ -54,6 +80,16 @@ struct ContentView: View {
             } else {
                 stopPulseAnimation()
             }
+
+            if wasRecording && !isRecording {
+                specimenStore.save(
+                    amplitude: audioRecorder.currentAmplitude,
+                    frequency: audioRecorder.currentFrequency,
+                    rhythm: audioRecorder.currentRhythm,
+                    growth: audioRecorder.lastGrowth
+                )
+            }
+            wasRecording = isRecording
         }
     }
 
@@ -65,7 +101,7 @@ struct ContentView: View {
                 .font(.system(size: 28, weight: .semibold, design: .default))
                 .foregroundColor(.black)
 
-            Text("Capture the sound around you")
+            Text("Visualize the sound around you")
                 .font(.system(size: 14, weight: .regular))
                 .foregroundColor(Color(.systemGray))
 

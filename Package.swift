@@ -19,7 +19,7 @@ let package = Package(
             bundleIdentifier: "com.tristanisolde.Echo-Imprint",
             displayVersion: "1.0",
             bundleVersion: "1",
-            appIcon: .placeholder(icon: .movieReel),
+            appIcon: .asset("AppIcon"),
             accentColor: .presetColor(.cyan),
             supportedDeviceFamilies: [
                 .pad,
