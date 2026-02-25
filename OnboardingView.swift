@@ -83,8 +83,13 @@ struct OnboardingView: View {
                         icon: "square.grid.2x2",
                         text: "Each recording becomes a specimen — a spatial memory you can return to."
                     )
+                    narrativeLine(
+                        icon: "hand.draw",
+                        text: "Touch and drag the Imprint to sculpt its form — your movement shapes the sound."
+                    )
                 }
                 .opacity(bodyOpacity)
+                .frame(maxWidth: 480)
                 .padding(.horizontal, 36)
 
                 Spacer()

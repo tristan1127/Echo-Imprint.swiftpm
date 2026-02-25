@@ -4,10 +4,14 @@ struct ContentView: View {
     @StateObject private var audioRecorder = AudioRecorder()
     @StateObject private var specimenStore = SpecimenStore()
     @AppStorage("isDarkMode") private var isDarkMode: Bool = true
+    @AppStorage("hasSeenDragHint") private var hasSeenDragHint: Bool = false
+    @AppStorage("hideDragHint") private var hideDragHint: Bool = false
     @State private var showLibrary: Bool = false
     @State private var pulseScale: CGFloat = 1.0
     @State private var dragOffset: CGSize = .zero
     @State private var dragVelocity: CGFloat = 0
+    @State private var hintOffset: CGSize = .zero
+    @State private var hintOpacity: Double = 0
 
     var body: some View {
         ZStack {
@@ -27,7 +31,15 @@ struct ContentView: View {
                     dragY: audioRecorder.dragFilterY,
                     size: 320
                 )
-                .offset(dragOffset)
+                .offset(
+                    x: dragOffset.width + hintOffset.width,
+                    y: dragOffset.height + hintOffset.height
+                )
+                .onAppear {
+                    if !hideDragHint {
+                        playDragHint()
+                    }
+                }
                 .gesture(
                     DragGesture()
                         .onChanged { value in
@@ -46,6 +58,44 @@ struct ContentView: View {
                         }
                 )
                 
+                if !hideDragHint {
+                    HStack(spacing: 10) {
+                        Text("Drag to sculpt the Imprint")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(isDarkMode ? Color.white.opacity(0.85) : Color.black.opacity(0.7))
+
+                        Button(action: {
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                hideDragHint = true
+                            }
+                        }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(isDarkMode ? Color.white.opacity(0.6) : Color.black.opacity(0.5))
+                                .frame(width: 20, height: 20)
+                                .background(
+                                    Circle()
+                                        .fill(isDarkMode ? Color.white.opacity(0.12) : Color.black.opacity(0.08))
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .background(
+                        Capsule()
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                Capsule()
+                                    .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                            )
+                            .shadow(color: Color.black.opacity(0.25), radius: 12, x: 0, y: 4)
+                    )
+                    .opacity(hintOpacity)
+                    .padding(.top, 16)
+                    .transition(.opacity)
+                }
+
                 Spacer()
                 
                 // 琉璃红录音键 + 提示文字
@@ -217,6 +267,31 @@ struct ContentView: View {
         ))
         renderer.scale = 3.0 // 高清导出
         return renderer.uiImage
+    }
+
+    private func playDragHint() {
+        // Fade in hint label
+        withAnimation(.easeIn(duration: 0.6).delay(1.2)) {
+            hintOpacity = 1.0
+        }
+        guard !hasSeenDragHint else { return }
+        // Drift animation: left → right → center
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            withAnimation(.easeInOut(duration: 0.55)) {
+                hintOffset = CGSize(width: -24, height: 0)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
+                withAnimation(.easeInOut(duration: 0.55)) {
+                    hintOffset = CGSize(width: 24, height: 0)
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.65)) {
+                        hintOffset = .zero
+                    }
+                    hasSeenDragHint = true
+                }
+            }
+        }
     }
 
     private var libraryView: some View {
