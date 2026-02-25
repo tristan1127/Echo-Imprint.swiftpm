@@ -47,6 +47,8 @@ struct ContentView: View {
             
             Button("Library (\(specimenStore.specimens.count))") { showLibrary = true }
                 .font(.subheadline).bold()
+                .accessibilityLabel("Sound Library, \(specimenStore.specimens.count) \(specimenStore.specimens.count == 1 ? "memory" : "memories") saved")
+                .accessibilityHint("Double tap to open your saved sound memories")
         }.padding()
     }
 
@@ -131,6 +133,7 @@ struct ContentView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(audioRecorder.isRecording ? "Stop recording" : "Start recording")
+        .accessibilityHint(audioRecorder.isRecording ? "Double tap to stop and save your sound memory" : "Double tap to begin capturing sound")
     }
 
     // ✨ 截图核心逻辑

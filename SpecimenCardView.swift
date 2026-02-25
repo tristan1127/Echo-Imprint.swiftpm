@@ -37,6 +37,7 @@ struct SpecimenCardView: View {
                 } else {
                     Text(specimen.name)
                         .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .accessibilityLabel("\(specimen.name), recorded \(specimen.timeLabel)")
                     Text(specimen.timeLabel)
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
@@ -64,6 +65,8 @@ struct SpecimenCardView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(isPlaying ? "Stop playback" : "Play \(specimen.name)")
+                .accessibilityHint(specimen.audioURL != nil ? "Double tap to \(isPlaying ? "stop" : "play") this recording" : "No audio file available")
 
                 // 铅笔按钮：增加 BorderlessButtonStyle 解决冲突
                 Button(action: {
@@ -84,15 +87,15 @@ struct SpecimenCardView: View {
                         )
                 }
                 .buttonStyle(BorderlessButtonStyle())
+                .accessibilityLabel("Rename \(specimen.name)")
+                .accessibilityHint("Double tap to rename this sound memory")
             }
         }
         .padding(12)
         .padding(.vertical, 4) // 卡片之间增加呼吸间距（尤其是浅色模式）
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(specimen.name), recorded \(specimen.timeLabel)")
-        .accessibilityHint("Double tap to play recording")
+        .accessibilityElement(children: .contain)
     }
 
     private func togglePlayback() {
