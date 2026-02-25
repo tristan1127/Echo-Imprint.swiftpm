@@ -5,19 +5,32 @@ struct SoundOrganismView: View {
     let amplitude: Float
     let frequency: Float
     let rhythm: Float
+    let dragX: Float
+    let dragY: Float
     let size: CGFloat
     let isFrozen: Bool
     let frozenGrowth: Float
     let onGrowthUpdate: ((Float) -> Void)?
 
     init(
-        amplitude: Float, frequency: Float, rhythm: Float,
-        size: CGFloat = 360, isFrozen: Bool = false,
-        frozenGrowth: Float = 0, onGrowthUpdate: ((Float) -> Void)? = nil
+        amplitude: Float,
+        frequency: Float,
+        rhythm: Float,
+        dragX: Float = 0,
+        dragY: Float = 0,
+        size: CGFloat = 360,
+        isFrozen: Bool = false,
+        frozenGrowth: Float = 0,
+        onGrowthUpdate: ((Float) -> Void)? = nil
     ) {
-        self.amplitude = amplitude; self.frequency = frequency
-        self.rhythm = rhythm; self.size = size
-        self.isFrozen = isFrozen; self.frozenGrowth = frozenGrowth
+        self.amplitude = amplitude
+        self.frequency = frequency
+        self.rhythm = rhythm
+        self.dragX = dragX
+        self.dragY = dragY
+        self.size = size
+        self.isFrozen = isFrozen
+        self.frozenGrowth = frozenGrowth
         self.onGrowthUpdate = onGrowthUpdate
     }
 
@@ -168,7 +181,18 @@ struct SoundOrganismView: View {
             let secondaryWave = cos(angle * (folds + 1) - phase * 0.8) * (deformation * 0.3)
             
             let r = max(5, radius + primaryWave + secondaryWave)
-            let pt = CGPoint(x: center.x + cos(angle) * r, y: center.y + sin(angle) * r)
+
+            // Horizontal skew based on dragX (0-1)
+            let skew = Double(dragX) * 0.3 // up to 30% stretch
+            let baseX = cos(angle) * r
+            let baseY = sin(angle) * r
+            let stretchedX = baseX * (1 + skew)
+            let stretchedY = baseY * (1 - skew * 0.5)
+
+            let pt = CGPoint(
+                x: center.x + stretchedX,
+                y: center.y + stretchedY
+            )
             
             if i == 0 {
                 path.move(to: pt)

@@ -10,6 +10,13 @@ struct SpecimenCardView: View {
     @State private var editName = ""
     @State private var player: AVAudioPlayer?
 
+    private static var sharedPlayer: AVAudioPlayer?
+    
+    static func stopAllPlayback() {
+        sharedPlayer?.stop()
+        sharedPlayer = nil
+    }
+
     var body: some View {
         HStack(spacing: 16) {
             // 左侧：那一瞬间的真实图案照片
@@ -99,13 +106,30 @@ struct SpecimenCardView: View {
     }
 
     private func togglePlayback() {
-        if isPlaying { player?.stop(); isPlaying = false; return }
+        if isPlaying {
+            SpecimenCardView.sharedPlayer?.stop()
+            isPlaying = false
+            return
+        }
         guard let url = specimen.audioURL else { return }
         do {
-            player = try AVAudioPlayer(contentsOf: url)
-            player?.play()
+            SpecimenCardView.sharedPlayer?.stop()
+            let newPlayer = try AVAudioPlayer(contentsOf: url)
+            SpecimenCardView.sharedPlayer = newPlayer
+            player = newPlayer
+            newPlayer.play()
             isPlaying = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + (player?.duration ?? 0)) { isPlaying = false }
-        } catch { print("Play error") }
+            let duration = newPlayer.duration
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
+                if SpecimenCardView.sharedPlayer === newPlayer {
+                    SpecimenCardView.sharedPlayer?.stop()
+                    SpecimenCardView.sharedPlayer = nil
+                }
+                isPlaying = false
+            }
+        } catch {
+            print("Play error")
+            isPlaying = false
+        }
     }
 }

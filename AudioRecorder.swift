@@ -20,9 +20,12 @@ final class AudioRecorder: ObservableObject {
     @Published var lastGrowth: Float = 0.0
     @Published var lastRecordingURL: URL?
     @Published var isPlaying: Bool = false
+    @Published var dragFilterX: Float = 0   // 0-1: controls high-frequency cutoff
+    @Published var dragFilterY: Float = 0   // 0-1: controls low-frequency boost
 
     nonisolated(unsafe) private var audioEngine: AVAudioEngine?
     nonisolated(unsafe) private var audioFile: AVAudioFile?
+    nonisolated(unsafe) private var eqNode: AVAudioUnitEQ?
     private var recordingURL: URL?
     private var simulationTimer: Timer?
     private var audioPlayer: AVAudioPlayer?
@@ -72,6 +75,18 @@ final class AudioRecorder: ObservableObject {
         startSimulation()
         isRecording = true
         return true
+    }
+
+    func setDragFilter(x: Float, y: Float) {
+        dragFilterX = x
+        dragFilterY = y
+        guard let eq = eqNode else { return }
+        // X axis: drag left/right scrubs high-frequency cutoff (treble cut effect)
+        // Maps 0-1 to frequency 8000Hz down to 500Hz
+        eq.bands[0].frequency = 8000 - (x * 7500)
+        eq.bands[0].gain = -x * 12  // cut up to -12dB
+        // Y axis: drag up/down boosts or cuts bass: -10dB to +10dB
+        eq.bands[1].gain = (y - 0.5) * 20
     }
 
 #if os(iOS)
@@ -166,6 +181,24 @@ final class AudioRecorder: ObservableObject {
             let file = try AVAudioFile(forWriting: url, settings: settings)
             audioFile = file
             audioEngine = engine
+
+            // Insert EQ node into the engine graph for real-time filtering
+            let eq = AVAudioUnitEQ(numberOfBands: 2)
+            // Band 0: high-shelf for treble cut
+            eq.bands[0].filterType = .highShelf
+            eq.bands[0].frequency = 8000
+            eq.bands[0].gain = 0
+            eq.bands[0].bypass = false
+            // Band 1: low-shelf for bass boost/cut
+            eq.bands[1].filterType = .lowShelf
+            eq.bands[1].frequency = 200
+            eq.bands[1].gain = 0
+            eq.bands[1].bypass = false
+            eqNode = eq
+
+            engine.attach(eq)
+            engine.connect(input, to: eq, format: format)
+            engine.connect(eq, to: engine.mainMixerNode, format: format)
 
             input.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self, weak file] buffer, _ in
                 guard let file = file else { return }
@@ -290,6 +323,9 @@ final class AudioRecorder: ObservableObject {
         
         audioFile = nil
         audioEngine = nil
+        eqNode = nil
+        dragFilterX = 0
+        dragFilterY = 0
         currentAmplitude = 0
         currentFrequency = 0
         currentRhythm = 0

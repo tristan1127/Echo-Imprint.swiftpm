@@ -6,6 +6,8 @@ struct ContentView: View {
     @AppStorage("isDarkMode") private var isDarkMode: Bool = true
     @State private var showLibrary: Bool = false
     @State private var pulseScale: CGFloat = 1.0
+    @State private var dragOffset: CGSize = .zero
+    @State private var dragVelocity: CGFloat = 0
 
     var body: some View {
         ZStack {
@@ -21,14 +23,39 @@ struct ContentView: View {
                     amplitude: audioRecorder.currentAmplitude,
                     frequency: audioRecorder.currentFrequency,
                     rhythm: audioRecorder.currentRhythm,
+                    dragX: audioRecorder.dragFilterX,
+                    dragY: audioRecorder.dragFilterY,
                     size: 320
+                )
+                .offset(dragOffset)
+                .gesture(
+                    DragGesture()
+                        .onChanged { value in
+                            dragOffset = value.translation
+                            dragVelocity = CGFloat(hypot(value.translation.width, value.translation.height))
+                            let xNorm = Float(min(abs(value.translation.width) / 160, 1.0))
+                            let yNorm = Float(min(abs(value.translation.height) / 160, 1.0))
+                            audioRecorder.setDragFilter(x: xNorm, y: yNorm)
+                        }
+                        .onEnded { value in
+                            HapticManager.shared.playImpact()
+                            withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+                                dragOffset = .zero
+                            }
+                            audioRecorder.setDragFilter(x: 0, y: 0)
+                        }
                 )
                 
                 Spacer()
                 
-                // 琉璃红录音键
-                recordingButton
-                    .padding(.bottom, 40)
+                // 琉璃红录音键 + 提示文字
+                VStack(spacing: 8) {
+                    recordingButton
+                    Text(audioRecorder.isRecording ? "Recording..." : "Tap to capture a memory")
+                        .font(.caption)
+                        .foregroundColor(isDarkMode ? Color.white.opacity(0.8) : Color.black.opacity(0.7))
+                }
+                .padding(.bottom, 40)
             }
         }
         .preferredColorScheme(isDarkMode ? .dark : .light)
@@ -42,13 +69,52 @@ struct ContentView: View {
             Button(action: { isDarkMode.toggle() }) {
                 Image(systemName: isDarkMode ? "moon.stars.fill" : "sun.max.fill")
                     .foregroundColor(isDarkMode ? .yellow : .orange)
+                    .frame(width: 20, height: 20)
+                    .padding(9)
+                    .background(
+                        Circle()
+                            .fill(
+                                Color.white.opacity(isDarkMode ? 0.16 : 0.32)
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(
+                                        (isDarkMode ? Color.white : Color.black).opacity(0.10),
+                                        lineWidth: 0.8
+                                    )
+                            )
+                    )
             }
-            .padding(.trailing, 10)
+            .buttonStyle(.plain)
+            .padding(.trailing, 8)
             
-            Button("Library (\(specimenStore.specimens.count))") { showLibrary = true }
-                .font(.subheadline).bold()
-                .accessibilityLabel("Sound Library, \(specimenStore.specimens.count) \(specimenStore.specimens.count == 1 ? "memory" : "memories") saved")
-                .accessibilityHint("Double tap to open your saved sound memories")
+            Button(action: { showLibrary = true }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "square.grid.2x2")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("\(specimenStore.specimens.count)")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(
+                            Color.white.opacity(isDarkMode ? 0.18 : 0.34)
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(
+                                    (isDarkMode ? Color.white : Color.black).opacity(0.08),
+                                    lineWidth: 0.8
+                                )
+                        )
+                )
+                .foregroundColor(isDarkMode ? .white : .black)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Sound Library, \(specimenStore.specimens.count) \(specimenStore.specimens.count == 1 ? "memory" : "memories") saved")
+            .accessibilityHint("Double tap to open your saved sound memories")
         }.padding()
     }
 
@@ -143,6 +209,8 @@ struct ContentView: View {
             amplitude: audioRecorder.currentAmplitude,
             frequency: audioRecorder.currentFrequency,
             rhythm: audioRecorder.currentRhythm,
+            dragX: 0,
+            dragY: 0,
             size: 320,
             isFrozen: true,
             frozenGrowth: audioRecorder.lastGrowth
@@ -168,6 +236,7 @@ struct ContentView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
+                        SpecimenCardView.stopAllPlayback()
                         showLibrary = false
                     }
                 }
