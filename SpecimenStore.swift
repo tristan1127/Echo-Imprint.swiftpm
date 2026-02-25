@@ -1,35 +1,64 @@
-import Foundation
+import SwiftUI
 
 @MainActor
-final class SpecimenStore: ObservableObject {
+class SpecimenStore: ObservableObject {
     @Published var specimens: [Specimen] = []
     private let saveKey = "echo_specimens"
 
     init() { load() }
 
-    func save(amplitude: Float, frequency: Float, rhythm: Float, growth: Float, audioURL: URL?) {
-        // Copy audio file to permanent location with specimen ID
+    func save(amplitude: Float, frequency: Float, rhythm: Float, growth: Float, audioURL: URL?, snapshot: UIImage?) {
+        let id = UUID()
         var audioFileName: String? = nil
+        var imageFileName: String? = nil
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+
+        // 1. 保存音频
         if let sourceURL = audioURL {
-            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            let ext = sourceURL.pathExtension
-            let fileName = "specimen_\(UUID().uuidString).\(ext)"
-            let destURL = docs.appendingPathComponent(fileName)
-            try? FileManager.default.copyItem(at: sourceURL, to: destURL)
-            audioFileName = fileName
+            let name = "audio_\(id.uuidString).caf"
+            let dest = docs.appendingPathComponent(name)
+            try? FileManager.default.copyItem(at: sourceURL, to: dest)
+            audioFileName = name
         }
 
+        // 2. 保存截图照片
+        if let image = snapshot, let data = image.pngData() {
+            let name = "image_\(id.uuidString).png"
+            let dest = docs.appendingPathComponent(name)
+            try? data.write(to: dest)
+            imageFileName = name
+        }
+
+        // 🌟 这里的参数必须和 Specimen 结构体里的定义一模一样
         let specimen = Specimen(
-            id: UUID(),
+            id: id,
             name: "Sound Memory",
             createdAt: Date(),
             amplitude: amplitude,
             frequency: frequency,
             rhythm: rhythm,
             growth: growth,
-            audioFileName: audioFileName
+            audioFileName: audioFileName,
+            imageFileName: imageFileName
         )
+        
         specimens.insert(specimen, at: 0)
+        persist()
+    }
+
+    func delete(at offsets: IndexSet) {
+        offsets.forEach { index in
+            let s = specimens[index]
+            // 删除本地音频文件
+            if let aURL = s.audioURL {
+                try? FileManager.default.removeItem(at: aURL)
+            }
+            // 删除本地图片文件
+            if let iURL = s.imageURL {
+                try? FileManager.default.removeItem(at: iURL)
+            }
+        }
+        specimens.remove(atOffsets: offsets)
         persist()
     }
 
@@ -37,18 +66,9 @@ final class SpecimenStore: ObservableObject {
         if let idx = specimens.firstIndex(where: { $0.id == specimen.id }) {
             specimens[idx].name = newName
             persist()
+            // 触觉反馈
+            HapticManager.shared.playSuccess()
         }
-    }
-
-    func delete(at offsets: IndexSet) {
-        // Also delete audio files
-        for idx in offsets {
-            if let url = specimens[idx].audioURL {
-                try? FileManager.default.removeItem(at: url)
-            }
-        }
-        specimens.remove(atOffsets: offsets)
-        persist()
     }
 
     private func persist() {

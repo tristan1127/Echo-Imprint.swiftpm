@@ -31,6 +31,16 @@ struct SoundOrganismView: View {
     private let baseRadius: Double = 60
     private let maxGrowth: Double = 100
 
+    private var accessibilityDescription: String {
+        let ampDesc = amplitude > 0.6 ? "loud" : amplitude > 0.2 ? "moderate" : "quiet"
+        let freqDesc = frequency > 0.6 ? "high-pitched" : frequency > 0.3 ? "mid-range" : "low"
+        let rhythmDesc = rhythm > 0.6 ? "fast-pulsing" : "steady"
+        if amplitude < 0.02 {
+            return "Sound organism at rest. Tap the microphone button to begin recording."
+        }
+        return "A \(rhythmDesc), \(ampDesc), \(freqDesc) sound memory is growing."
+    }
+
     var body: some View {
         if isFrozen {
             frozenCanvas
@@ -75,6 +85,8 @@ struct SoundOrganismView: View {
             }
         }
         .frame(width: size, height: size)
+        .accessibilityLabel(accessibilityDescription)
+        .accessibilityValue(amplitude > 0.02 ? "Recording active" : "Silent")
     }
 
     // MARK: - Frozen Canvas (The "Imprint")

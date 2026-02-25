@@ -2,9 +2,9 @@ import SwiftUI
 import AVFoundation
 
 struct SpecimenCardView: View {
+    @Environment(\.colorScheme) private var colorScheme
     let specimen: Specimen
     let onRename: (String) -> Void
-
     @State private var isPlaying = false
     @State private var isRenaming = false
     @State private var editName = ""
@@ -12,114 +12,97 @@ struct SpecimenCardView: View {
 
     var body: some View {
         HStack(spacing: 16) {
-
-            // Preview — full-size organism scaled down via scaleEffect
-            // This shows the real frozen shape, not a tiny canvas
-            ZStack {
-                SoundOrganismView(
-                    amplitude: specimen.amplitude,
-                    frequency: specimen.frequency,
-                    rhythm: specimen.rhythm,
-                    size: 320,
-                    isFrozen: true,
-                    frozenGrowth: specimen.growth
-                )
-                .scaleEffect(0.28)          // scale 320 → ~90pt visual
-                .frame(width: 90, height: 90)
-                .clipped()
+            // 左侧：那一瞬间的真实图案照片
+            Group {
+                if let url = specimen.imageURL, let uiImage = UIImage(contentsOfFile: url.path) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFit()
+                } else {
+                    Color.gray.opacity(0.2) // 占位符
+                }
             }
-            .frame(width: 90, height: 90)
+            .frame(width: 85, height: 85)
             .background(Color(.systemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .allowsHitTesting(false)
 
-            // Info
             VStack(alignment: .leading, spacing: 6) {
                 if isRenaming {
                     TextField("Name", text: $editName, onCommit: {
-                        let trimmed = editName.trimmingCharacters(in: .whitespaces)
-                        if !trimmed.isEmpty { onRename(trimmed) }
+                        onRename(editName)
                         isRenaming = false
                     })
-                    .font(.system(size: 15, weight: .semibold))
-                    .textFieldStyle(.plain)
-                    .onAppear { editName = specimen.name }
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 15, weight: .bold))
                 } else {
                     Text(specimen.name)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(Color(.label))
-                        .onTapGesture(count: 2) {
-                            editName = specimen.name
-                            isRenaming = true
-                        }
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                    Text(specimen.timeLabel)
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
                 }
-
-                Text(specimen.timeLabel)
-                    .font(.system(size: 12))
-                    .foregroundColor(Color(.systemGray))
             }
-
+            
             Spacer()
 
-            // Playback button
-            VStack(spacing: 8) {
-                Button(action: togglePlayback) {
-                    Image(systemName: isPlaying ? "stop.circle.fill" : "play.circle.fill")
-                        .font(.system(size: 28))
-                        .foregroundColor(specimen.audioURL != nil ? Color(.systemBlue) : Color(.systemGray3))
+            HStack(spacing: 10) {
+                // 播放 / 暂停按钮（玻璃风格）
+                Button(action: {
+                    togglePlayback()
+                }) {
+                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(
+                                    colorScheme == .dark
+                                    ? Color.white.opacity(0.20)
+                                    : Color.black.opacity(0.22)
+                                )
+                        )
                 }
-                .disabled(specimen.audioURL == nil)
+                .buttonStyle(.plain)
 
-                // Rename button
+                // 铅笔按钮：增加 BorderlessButtonStyle 解决冲突
                 Button(action: {
                     editName = specimen.name
-                    isRenaming = true
+                    isRenaming.toggle()
                 }) {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 13))
-                        .foregroundColor(Color(.systemGray))
+                    Image(systemName: "pencil.circle.fill")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(
+                                    colorScheme == .dark
+                                    ? Color.white.opacity(0.16)
+                                    : Color.black.opacity(0.20)
+                                )
+                        )
                 }
+                .buttonStyle(BorderlessButtonStyle())
             }
         }
-        .padding(14)
-        .background(Color(.secondarySystemGroupedBackground))
+        .padding(12)
+        .padding(.vertical, 4) // 卡片之间增加呼吸间距（尤其是浅色模式）
+        .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 3)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(specimen.name), recorded \(specimen.timeLabel)")
+        .accessibilityHint("Double tap to play recording")
     }
 
     private func togglePlayback() {
-        if isPlaying {
-            player?.stop()
-            player = nil
-            isPlaying = false
-            return
-        }
-
-        guard let url = specimen.audioURL,
-              FileManager.default.fileExists(atPath: url.path) else {
-            return
-        }
-
+        if isPlaying { player?.stop(); isPlaying = false; return }
+        guard let url = specimen.audioURL else { return }
         do {
-            #if os(iOS)
-            try AVAudioSession.sharedInstance().setCategory(.playback)
-            try AVAudioSession.sharedInstance().setActive(true)
-            #endif
-            let p = try AVAudioPlayer(contentsOf: url)
-            player = p
-            p.play()
+            player = try AVAudioPlayer(contentsOf: url)
+            player?.play()
             isPlaying = true
-
-            // Auto-reset when done
-            Task {
-                try? await Task.sleep(nanoseconds: UInt64(p.duration * 1_000_000_000) + 200_000_000)
-                await MainActor.run {
-                    isPlaying = false
-                    player = nil
-                }
-            }
-        } catch {
-            print("Playback error: \(error)")
-        }
+            DispatchQueue.main.asyncAfter(deadline: .now() + (player?.duration ?? 0)) { isPlaying = false }
+        } catch { print("Play error") }
     }
 }
