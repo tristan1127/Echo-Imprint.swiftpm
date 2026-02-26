@@ -9,7 +9,7 @@ struct Specimen: Identifiable, Codable {
     let rhythm: Float
     let growth: Float
     let audioFileName: String?
-    let imageFileName: String? // 🌟 必须加上这一行
+    let imageFileName: String?
 
     // 计算音频文件的本地路径
     var audioURL: URL? {
@@ -18,7 +18,7 @@ struct Specimen: Identifiable, Codable {
         return docs.appendingPathComponent(fileName)
     }
     
-    // 🌟 必须加上这一行：计算截图图片的本地路径
+    // 计算截图图片的本地路径
     var imageURL: URL? {
         guard let fileName = imageFileName else { return nil }
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]

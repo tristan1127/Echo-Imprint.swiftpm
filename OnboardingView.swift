@@ -97,6 +97,7 @@ struct OnboardingView: View {
 
                 // CTA button
                 Button(action: {
+                    HapticManager.shared.playImpact()
                     withAnimation(.easeInOut(duration: 0.4)) {
                         hasSeenOnboarding = true
                     }

@@ -29,7 +29,6 @@ class SpecimenStore: ObservableObject {
             imageFileName = name
         }
 
-        // 🌟 这里的参数必须和 Specimen 结构体里的定义一模一样
         let specimen = Specimen(
             id: id,
             name: "Sound Memory",

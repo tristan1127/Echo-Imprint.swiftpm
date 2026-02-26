@@ -103,6 +103,8 @@ struct ContentView: View {
                     recordingButton
                     Text(audioRecorder.isRecording ? "Recording..." : "Tap to capture a memory")
                         .font(.caption)
+                        .minimumScaleFactor(0.5)
+                        .lineLimit(1)
                         .foregroundColor(isDarkMode ? Color.white.opacity(0.8) : Color.black.opacity(0.7))
                 }
                 .padding(.bottom, 40)
@@ -110,7 +112,23 @@ struct ContentView: View {
         }
         .preferredColorScheme(isDarkMode ? .dark : .light)
         .sheet(isPresented: $showLibrary) { libraryView }
-    }
+        .accessibilityAction(.magicTap) {
+            HapticManager.shared.playImpact()
+            if audioRecorder.isRecording {
+                let snapshot = takeSnapshot()
+                audioRecorder.stopRecording()
+                specimenStore.save(
+                    amplitude: audioRecorder.currentAmplitude,
+                    frequency: audioRecorder.currentFrequency,
+                    rhythm: audioRecorder.currentRhythm,
+                    growth: audioRecorder.lastGrowth,
+                    audioURL: audioRecorder.lastRecordingURL,
+                    snapshot: snapshot
+                )
+            } else {
+                Task { await audioRecorder.startRecording() }
+            }
+        }    }
 
     private var topBar: some View {
         HStack {
@@ -317,6 +335,19 @@ struct ContentView: View {
                 }
             }
             .listStyle(.plain)
+            .safeAreaInset(edge: .bottom) {
+                VStack(spacing: 4) {
+                    Text("Echo Imprint")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.secondary)
+                    Text("Every sound leaves a mark.")
+                        .font(.system(size: 11, weight: .light))
+                        .minimumScaleFactor(0.8)
+                        .foregroundColor(.secondary.opacity(0.7))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+            }
         }
     }
 }
