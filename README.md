@@ -1,6 +1,5 @@
 <div align="center">
 
-<img src="screenshot_onboarding.png" width="320" alt="Echo Imprint onboarding screen" />
 
 # Echo Imprint
 
